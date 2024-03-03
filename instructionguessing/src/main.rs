@@ -2,8 +2,8 @@ use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
-use u32;
 use std::str::FromStr;
+use u32;
 /*
 81 18 e4 b3
 18 81 b3 e4
@@ -13,6 +13,10 @@ fn mips_mix_around(num: u32) -> u32 {
         + ((num & 0x00ff0000) << 8)
         + ((num & 0x0000ff00) >> 8)
         + ((num & 0xff) << 8)
+}
+
+fn bit_n(x: u32, n: u32) -> u32 {
+   x >> n & 1
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -32,36 +36,81 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                 let pos_instruction = words[0];
                 let mut start: Option<u32> = None;
                 let mut end: Option<u32> = None;
+                let mut isPossible = true;
                 for word in &words[1..] {
                     if word.contains("..") {
                         let bit_range: Vec<&str> = word.split("..").collect();
-                        println!("{} {}", bit_range[0], bit_range[1]);
-                        
+
                         start = match u32::from_str(bit_range[1]) {
-                            Err(_) => { return Err(format!("invalid int {}", bit_range[0])); },
+                            Err(_) => {
+                                return Err(format!("invalid int {}", bit_range[0]));
+                            }
                             Ok(n) => Some(n),
                         };
                         end = match u32::from_str(bit_range[0]) {
-                            Err(_) => { return Err(format!("invalid int {}", bit_range[1])); },
+                            Err(_) => {
+                                return Err(format!("invalid int {}", bit_range[1]));
+                            }
                             Ok(n) => Some(n),
                         };
-                    } else if word.contains("0") || word.contains("1") {
-                        if word.len() as u32 != end.unwrap() - start.unwrap()+1 {
-                            return Err(format!("file {:?} invalid csv format
-                                        {} {} {}", path, word.len(), start.unwrap(), end.unwrap()));
+                    } else if end.is_some() && start.is_some() && (word.contains("0") || word.contains("1")) {
+                        if word.len() == 1 {
+                            if start.is_none() {
+                                return Err(format!(
+                                    "previous string is not an index for single bit"
+                                ));
+                            }
+                            let value = word.parse::<u32>().unwrap();
+                            if value != bit_n(num, start.unwrap()) {
+                                isPossible = false;
+                                break;
+                            }                    
+                        } else if word.len() as u32 != end.unwrap() - start.unwrap() + 1 {
+                            return Err(format!(
+                                "file {:?} invalid csv format
+                                        {} {} {}",
+                                path,
+                                word,
+                                start.unwrap_or(0),
+                                end.unwrap_or(0)
+                            ));
                         }
+                        let mut expected = String::from("");
+                        for i in start.unwrap()..end.unwrap()+1 {
+                            expected.push_str(&bit_n(num, i).to_string());
+                        }
+                        expected = expected.chars().rev().collect::<String>();
+                        if *word != &expected {
+                            println!("{} is not {} {} {}", *word, &expected, start.unwrap(), end.unwrap());
+                            isPossible = false;
+                            break;
+                        }
+                        // check num in the range
+                        start = None;
+                        end = None;
                     } else if word.len() <= 2 {
                         // case of single bit index
-                        let bit_index = match u32::from_str(bit_range[1]) {   
-                            return Err(format!("{:?} is a non-range number in the csv", ))
-                        }   
+                        start = match u32::from_str(word) {
+                            Err(e) => {
+                                return Err(format!(
+                                    "{:?} is a non-range number in the csv {}",
+                                    word, e
+                                ));
+                            }
+                            Ok(v) => Some(v),
+                        };
                     } else {
                         return Err(format!("{:?} invalid csv format {}", path, word));
                     }
                 }
+                if isPossible { 
+                    println!("{} is a possilbe instruction", pos_instruction);
+                } else {
+                    println!("not possible");
+                }
             }
             Ok(())
-        },
+        }
         Err(e) => Err(format!("{:?}", e)),
     }
 }
