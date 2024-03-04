@@ -16,7 +16,16 @@ fn mips_mix_around(num: u32) -> u32 {
 }
 
 fn bit_n(x: u32, n: u32) -> u32 {
-   x >> n & 1
+    x >> n & 1
+}
+
+fn compare_bitfield(num: u32, start: u32, end: u32, actual: &str) -> bool {
+    let mut expected = String::from("");
+    for i in start..end + 1 {
+        expected.push_str(&bit_n(num, i).to_string());
+    }
+    expected = expected.chars().rev().collect::<String>();
+    return expected == actual;
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -53,7 +62,10 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                             }
                             Ok(n) => Some(n),
                         };
-                    } else if end.is_some() && start.is_some() && (word.contains("0") || word.contains("1")) {
+                    } else if end.is_some()
+                        && start.is_some()
+                        && (word.contains("0") || word.contains("1"))
+                    {
                         if word.len() == 1 {
                             if start.is_none() {
                                 return Err(format!(
@@ -64,7 +76,7 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                             if value != bit_n(num, start.unwrap()) {
                                 isPossible = false;
                                 break;
-                            }                    
+                            }
                         } else if word.len() as u32 != end.unwrap() - start.unwrap() + 1 {
                             return Err(format!(
                                 "file {:?} invalid csv format
@@ -75,13 +87,8 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                 end.unwrap_or(0)
                             ));
                         }
-                        let mut expected = String::from("");
-                        for i in start.unwrap()..end.unwrap()+1 {
-                            expected.push_str(&bit_n(num, i).to_string());
-                        }
-                        expected = expected.chars().rev().collect::<String>();
-                        if *word != &expected {
-                            println!("{} is not {} {} {}", *word, &expected, start.unwrap(), end.unwrap());
+                        if !compare_bitfield(num, start.unwrap(), end.unwrap(), word) {
+                            println!("start {} end {}", start.unwrap(), end.unwrap());
                             isPossible = false;
                             break;
                         }
@@ -103,7 +110,7 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                         return Err(format!("{:?} invalid csv format {}", path, word));
                     }
                 }
-                if isPossible { 
+                if isPossible {
                     println!("{} is a possilbe instruction", pos_instruction);
                 } else {
                     println!("not possible");
