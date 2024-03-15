@@ -107,7 +107,6 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                 ));
                             }
                             if !compare_bitfield(num, start.unwrap(), end.unwrap(), word) {
-                                println!("start {} end {}", start.unwrap(), end.unwrap());
                                 is_possible = false;
                                 break;
                             }
@@ -161,9 +160,10 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                 }
                 if is_possible {
                     println!("{}", pos_instruction);
-                } else {
-                    println!("not possible");
                 }
+                /*else {
+                    println!("{} not possible", pos_instruction);
+                }*/
             }
             Ok(())
         }
@@ -206,7 +206,7 @@ fn main() -> Result<(), String> {
             return Err(String::from(e));
         }
     };
-    println!("{num32:b} {num32:x}");
+    //println!("{num32:b} {num32:x}");
     iterate_file(num32, file_path)?;
     Ok(())
 }
