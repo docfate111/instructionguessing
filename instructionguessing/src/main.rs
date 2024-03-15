@@ -15,17 +15,25 @@ fn mips_mix_around(num: u32) -> u32 {
         + ((num & 0xff) << 8)
 }
 
-fn bit_n(x: u32, n: u32) -> u32 {
-    x >> n & 1
+fn bit_n(x: u32, n: u8) -> u8 {
+    (x >> n & 1).try_into().unwrap()
 }
 
-fn compare_bitfield(num: u32, start: u32, end: u32, actual: &str) -> bool {
+fn compare_bitfield(num: u32, start: u8, end: u8, actual: &str) -> bool {
     let mut expected = String::from("");
     for i in start..end + 1 {
         expected.push_str(&bit_n(num, i).to_string());
     }
     expected = expected.chars().rev().collect::<String>();
     return expected == actual;
+}
+
+fn get_bitfield(num: u32, start: u8, end: u8) -> String {
+    let mut expected = String::from("");
+    for i in start..end + 1 {
+        expected.push_str(&bit_n(num, i).to_string());
+    }
+    return expected;
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -43,28 +51,13 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
             for line in lines.flatten() {
                 let words: Vec<&str> = line.split(',').collect();
                 let mut pos_instruction = String::from(words[0]);
-                let mut start: Option<u32> = None;
-                let mut end: Option<u32> = None;
+                let mut start: Option<u8> = None;
+                let mut end: Option<u8> = None;
                 let mut is_possible = true;
-                let mut to_process = 0;
                 // check one possible instruction "words" with this loop
                 for word in &words[1..] {
+                    //println!("word {}", word);
                     if start.is_none() {
-                        // start being none means this is a range of indeces
-                        // so either it needs to be processed later or the last range can be printed
-                        //to_process += 1;
-                        // if there were no bytes matching the range then
-                        // store what bytes fit into what ranges
-                        // i.e. 25...21 print the 25 to 21st byte from the input argument
-                        /*if to_process >= 2 {
-                            pos_instruction.push_str(&format!(
-                                " [{},{}]:{}",
-                                end.unwrap(),
-                                start.unwrap(),
-                                word
-                            ));
-                            to_process -= 1;
-                        }*/
                         if word.contains("..") && word.matches(".").count() == 2 {
                             let bit_range: Vec<&str> = word.split("..").collect();
 
@@ -72,20 +65,20 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                 Err(_) => {
                                     return Err(format!("{}: invalid int {}", word, bit_range[0]));
                                 }
-                                Ok(n) => Some(n),
+                                Ok(n) => Some(n as u8),
                             };
                             end = match u32::from_str(bit_range[0]) {
                                 Err(_) => {
                                     return Err(format!("{}: invalid int {}", word, bit_range[1]));
                                 }
-                                Ok(n) => Some(n),
+                                Ok(n) => Some(n as u8),
                             };
                         } else {
                             start = match u32::from_str(word) {
                                 Err(_) => {
                                     return Err(format!("{} is not a valid bit index", word));
                                 }
-                                Ok(n) => Some(n),
+                                Ok(n) => Some(n as u8),
                             };
                         }
                     } else if start.is_some() && (word.contains("0") || word.contains("1")) {
@@ -96,13 +89,14 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                 ));
                             }
                             let value = word.parse::<u32>().unwrap();
-                            if value != bit_n(num, start.unwrap()) {
+                            if value != bit_n(num, start.unwrap()).into() {
                                 is_possible = false;
                                 break;
                             }
                             pos_instruction.push_str(&format!(" [{}]:{}", start.unwrap(), word));
+                            start = None;
                         } else if start.is_some() && end.is_some() {
-                            if word.len() as u32 != end.unwrap() - start.unwrap() + 1 {
+                            if word.len() as u8 != end.unwrap() - start.unwrap() + 1 {
                                 return Err(format!(
                                     "file {:?} invalid csv format
                                         {} {} {}",
@@ -127,6 +121,26 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                             start = None;
                             end = None;
                         }
+                    } else if word.contains("*") {
+                        if start.is_some() && end.is_some() {
+                            // if there were no bytes matching the range then
+                            // store what bytes fit into what ranges
+                            // i.e. 25...21 print the 25 to 21st byte from the input argument
+                            pos_instruction.push_str(&format!(
+                                " [{},{}]:{}",
+                                end.unwrap(),
+                                start.unwrap(),
+                                &get_bitfield(num, start.unwrap(), end.unwrap())
+                            ));
+                        } else if start.is_some() {
+                            pos_instruction.push_str(&format!(
+                                " [{}]:{}",
+                                start.unwrap(),
+                                bit_n(num, start.unwrap())
+                            ));
+                        }
+                        start = None;
+                        end = None;
                     } else if word.len() <= 2 {
                         // case of single bit index
                         start = match u32::from_str(word) {
@@ -136,7 +150,7 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                     word, e
                                 ));
                             }
-                            Ok(v) => Some(v),
+                            Ok(v) => Some(v as u8),
                         };
                     } else {
                         return Err(format!(
