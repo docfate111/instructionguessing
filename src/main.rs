@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use std::str::FromStr;
-use u32;
 /*
 81 18 e4 b3
 18 81 b3 e4
@@ -25,7 +24,7 @@ fn compare_bitfield(num: u32, start: u8, end: u8, actual: &str) -> bool {
         expected.push_str(&bit_n(num, i).to_string());
     }
     expected = expected.chars().rev().collect::<String>();
-    return expected == actual;
+    expected == actual
 }
 
 fn get_bitfield(num: u32, start: u8, end: u8) -> String {
@@ -33,7 +32,7 @@ fn get_bitfield(num: u32, start: u8, end: u8) -> String {
     for i in start..end + 1 {
         expected.push_str(&bit_n(num, i).to_string());
     }
-    return expected;
+    expected
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -50,7 +49,12 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
             // Consumes the iterator, returns an (Option) String
             for line in lines.flatten() {
                 let words: Vec<&str> = line.split(',').collect();
-                let mut pos_instruction = String::from(words[0]);
+                let mut pos_instruction = match words.get(0) {
+                    None => {
+                        return Err("empty line or error parsing csv".to_string());
+                    }
+                    Some(v) => String::from(*v),
+                };
                 let mut start: Option<u8> = None;
                 let mut end: Option<u8> = None;
                 let mut is_possible = true;
@@ -58,7 +62,7 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                 for word in &words[1..] {
                     //println!("word {}", word);
                     if start.is_none() {
-                        if word.contains("..") && word.matches(".").count() == 2 {
+                        if word.contains("..") && word.matches('.').count() == 2 {
                             let bit_range: Vec<&str> = word.split("..").collect();
 
                             start = match u32::from_str(bit_range[1]) {
@@ -81,12 +85,12 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                                 Ok(n) => Some(n as u8),
                             };
                         }
-                    } else if start.is_some() && (word.contains("0") || word.contains("1")) {
+                    } else if start.is_some() && (word.contains('0') || word.contains('1')) {
                         if word.len() == 1 {
                             if start.is_none() {
-                                return Err(format!(
-                                    "previous string is not an index for single bit"
-                                ));
+                                return Err(
+                                    "previous string is not an index for single bit".to_string()
+                                );
                             }
                             let value = word.parse::<u32>().unwrap();
                             if value != bit_n(num, start.unwrap()).into() {
@@ -120,7 +124,7 @@ fn iterate_file(num: u32, path: &str) -> Result<(), String> {
                             start = None;
                             end = None;
                         }
-                    } else if word.contains("*") {
+                    } else if word.contains('*') {
                         if start.is_some() && end.is_some() {
                             // if there were no bytes matching the range then
                             // store what bytes fit into what ranges
@@ -200,13 +204,7 @@ fn main() -> Result<(), String> {
     let hex_str = &args[1];
     let file_path = &args[2];
 
-    let num32 = match clean_string(hex_str) {
-        Ok(k) => k,
-        Err(e) => {
-            return Err(String::from(e));
-        }
-    };
-    //println!("{num32:b} {num32:x}");
+    let num32 = clean_string(hex_str)?;
     iterate_file(num32, file_path)?;
     Ok(())
 }
