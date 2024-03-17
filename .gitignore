@@ -1,3 +1,4 @@
 instructionguessing/target
+instructionguessing/target/debug
 instructionguessing/target/*
 .gitignore
